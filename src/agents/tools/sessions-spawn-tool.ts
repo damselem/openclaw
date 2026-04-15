@@ -173,8 +173,12 @@ export function createSessionsSpawnTool(
       const mode = params.mode === "run" || params.mode === "session" ? params.mode : undefined;
       const cleanup =
         params.cleanup === "keep" || params.cleanup === "delete" ? params.cleanup : "keep";
+      const expectsCompletionMessage = params.expectsCompletionMessage !== false;
       const sandbox = params.sandbox === "require" ? "require" : "inherit";
-      const streamTo = params.streamTo === "parent" ? "parent" : undefined;
+      const requestedStreamTo = params.streamTo === "parent" ? "parent" : undefined;
+      // Some callers retain ACP-only fields when they fall back to subagent runtime.
+      // Treat streamTo as ACP-only and drop it silently for subagent requests.
+      const streamTo = runtime === "acp" ? requestedStreamTo : undefined;
       const lightContext = params.lightContext === true;
       if (runtime === "acp" && lightContext) {
         throw new Error("lightContext is only supported for runtime='subagent'.");
@@ -199,13 +203,6 @@ export function createSessionsSpawnTool(
             mimeType?: string;
           }>)
         : undefined;
-
-      if (streamTo && runtime !== "acp") {
-        return jsonResult({
-          status: "error",
-          error: `streamTo is only supported for runtime=acp; got runtime=${runtime}`,
-        });
-      }
 
       if (resumeSessionId && runtime !== "acp") {
         return jsonResult({
@@ -289,7 +286,7 @@ export function createSessionsSpawnTool(
               cleanup: trackedCleanup,
               label: label || undefined,
               runTimeoutSeconds,
-              expectsCompletionMessage: true,
+              expectsCompletionMessage,
               spawnMode: trackedSpawnMode,
             });
           } catch (err) {
@@ -320,7 +317,7 @@ export function createSessionsSpawnTool(
           cleanup,
           sandbox,
           lightContext,
-          expectsCompletionMessage: true,
+          expectsCompletionMessage,
           attachments,
           attachMountPath:
             params.attachAs && typeof params.attachAs === "object"
@@ -345,3 +342,4 @@ export function createSessionsSpawnTool(
     },
   };
 }
+
